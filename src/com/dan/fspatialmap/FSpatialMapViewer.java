@@ -898,11 +898,26 @@ public class FSpatialMapViewer extends JComponent implements FTheme.ThemeListene
     // ------------------------------------------------------------------
 
     private void paintVectorLayers(Graphics2D g2) {
+        // Sichtbaren Lon/Lat-Ausschnitt einmal pro Repaint berechnen (nicht pro Feature) -
+        // 10% Puffer, damit am Rand anschneidende Features nicht vorzeitig verschwinden.
+        double viewMinLon = screenXToLon(0);
+        double viewMaxLon = screenXToLon(getWidth());
+        double viewMinLat = screenYToLat(getHeight());
+        double viewMaxLat = screenYToLat(0);
+        double lonPad = (viewMaxLon - viewMinLon) * 0.1;
+        double latPad = (viewMaxLat - viewMinLat) * 0.1;
+        viewMinLon -= lonPad; viewMaxLon += lonPad;
+        viewMinLat -= latPad; viewMaxLat += latPad;
+
         for (FGeoLayer layer : vectorModel.getLayers()) {
             if (!layer.isVisible()) {
                 continue;
             }
             for (FGeoFeature feature : layer.getFeatures()) {
+                if (feature.getMaxLon() < viewMinLon || feature.getMinLon() > viewMaxLon
+                        || feature.getMaxLat() < viewMinLat || feature.getMinLat() > viewMaxLat) {
+                    continue; // ausserhalb des sichtbaren Ausschnitts - billiger BBox-Check statt Projektion
+                }
                 paintFeature(g2, layer, feature);
             }
         }

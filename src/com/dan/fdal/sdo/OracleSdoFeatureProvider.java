@@ -63,27 +63,39 @@ public class OracleSdoFeatureProvider implements FLayerFeatureProvider {
             throw new SdoParseException("Unbekannter Layer: " + layerName);
         }
         List<FGeoFeature> result = new ArrayList<>();
+        int skipped = 0;
         try (Connection conn = connectionProvider.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                long id = rs.getLong(1);
-                String name = rs.getString(2);
-                Object geomObj = rs.getObject(3);
-                if (geomObj == null) {
-                    continue;
-                }
-                if (!(geomObj instanceof Struct)) {
-                    throw new SdoParseException("Spalte 3 (\"GEOM\") in Layer \"" + layerName
-                            + "\" ist keine SDO_GEOMETRY (Typ: " + geomObj.getClass() + ").");
-                }
-                FGeoFeature feature = SdoGeometryParser.toFeature(id, name, (Struct) geomObj);
-                if (feature != null) {
-                    result.add(feature);
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setFetchSize(500); // Oracle-Default ist 10 - bei mehreren tausend Zeilen extrem langsam
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long id = rs.getLong(1);
+                    String name = rs.getString(2);
+                    Object geomObj = rs.getObject(3);
+                    if (geomObj == null) {
+                        continue;
+                    }
+                    if (!(geomObj instanceof Struct)) {
+                        throw new SdoParseException("Spalte 3 (\"GEOM\") in Layer \"" + layerName
+                                + "\" ist keine SDO_GEOMETRY (Typ: " + geomObj.getClass() + ").");
+                    }
+                    try {
+                        result.addAll(SdoGeometryParser.toFeatures(id, name, (Struct) geomObj));
+                    } catch (SdoParseException rowEx) {
+                        // Einzelne kaputte/nicht unterstuetzte Geometrie ueberspringen statt
+                        // den kompletten Layer abzubrechen - Rest der Zeilen wird weiter geladen.
+                        skipped++;
+                        System.err.println("Layer \"" + layerName + "\", gid=" + id
+                                + " uebersprungen: " + rowEx.getMessage());
+                    }
                 }
             }
         } catch (SQLException ex) {
             throw new SdoParseException("Layer \"" + layerName + "\" konnte nicht geladen werden.", ex);
+        }
+        if (skipped > 0) {
+            System.err.println("Layer \"" + layerName + "\": " + skipped
+                    + " Geometrie(n) uebersprungen, " + result.size() + " Feature(s) geladen.");
         }
         return result;
     }

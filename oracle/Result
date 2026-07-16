@@ -1,0 +1,87 @@
+========== 1. ID-FORMAT (rein numerisch? Praefix?) ==========
+
+TABLE_NAME           SAMPLE_ID                     
+-------------------- ------------------------------
+GEMEINDEN_SH         relation/176636               
+GEMEINDEN_SH         relation/176736               
+GEMEINDEN_SH         relation/176739               
+SCHUTZGEBIETE        relation/1547774              
+SCHUTZGEBIETE        relation/1562671              
+SCHUTZGEBIETE        relation/1582710              
+SEEN                 relation/2613150              
+SEEN                 relation/2908305              
+SEEN                 relation/8797                 
+WALD                 relation/63790                
+WALD                 relation/66286                
+WALD                 relation/67712                
+
+12 Zeilen ausgewählt. 
+
+========== 2. WIEVIELE IDs SIND NICHT REIN NUMERISCH? ==========
+
+TABLE_NAME                TOTAL REIN_NUMERISCH
+-------------------- ---------- --------------
+GEMEINDEN_SH               1892              0
+SCHUTZGEBIETE               206              0
+SEEN                       1581              0
+WALD                      37550              0
+
+========== 3. GTYPE-VERTEILUNG (1=POINT,2=LINE,3=POLYGON; 5/6/7=MULTI*) ==========
+
+Fehler beim Start in Zeile: 32 in Befehl -
+SELECT 'GEMEINDEN_SH' AS TABLE_NAME, GEOM.SDO_GTYPE AS GTYPE, COUNT(*) AS N
+FROM GEMEINDEN_SH GROUP BY GEOM.SDO_GTYPE
+UNION ALL
+SELECT 'SCHUTZGEBIETE', GEOM.SDO_GTYPE, COUNT(*) FROM SCHUTZGEBIETE GROUP BY GEOM.SDO_GTYPE
+UNION ALL
+SELECT 'SEEN', GEOM.SDO_GTYPE, COUNT(*) FROM SEEN GROUP BY GEOM.SDO_GTYPE
+UNION ALL
+SELECT 'WALD', GEOM.SDO_GTYPE, COUNT(*) FROM WALD GROUP BY GEOM.SDO_GTYPE
+ORDER BY 1, 2
+Fehler bei Befehlszeile: 33 Spalte: 28
+Fehlerbericht -
+SQL-Fehler: ORA-00904: "GEOM"."SDO_GTYPE": ungültige ID
+
+https://docs.oracle.com/error-help/db/ora-00904/00904. 00000 -  "%s: invalid identifier"
+*Cause:    The identifier or column name entered was invalid.
+*Action:   Ensure the following
+
+More Details :
+https://docs.oracle.com/error-help/db/ora-00904/
+========== 4. WIEVIELE POLYGONE HABEN MEHR ALS 1 ELEMENT (MULTI/Loecher)? ==========
+
+Fehler beim Start in Zeile: 43 in Befehl -
+SELECT 'GEMEINDEN_SH' AS TABLE_NAME,
+       COUNT(*) AS TOTAL_POLYGONE,
+       SUM(CASE WHEN GEOM.SDO_ELEM_INFO.COUNT > 3 THEN 1 ELSE 0 END) AS KOMPLEX_MEHRTEILIG
+FROM GEMEINDEN_SH WHERE GEOM.SDO_GTYPE IN (2003,3003)
+UNION ALL
+SELECT 'SCHUTZGEBIETE',
+       COUNT(*),
+       SUM(CASE WHEN GEOM.SDO_ELEM_INFO.COUNT > 3 THEN 1 ELSE 0 END)
+FROM SCHUTZGEBIETE WHERE GEOM.SDO_GTYPE IN (2003,3003)
+UNION ALL
+SELECT 'WALD',
+       COUNT(*),
+       SUM(CASE WHEN GEOM.SDO_ELEM_INFO.COUNT > 3 THEN 1 ELSE 0 END)
+FROM WALD WHERE GEOM.SDO_GTYPE IN (2003,3003)
+Fehler bei Befehlszeile: 46 Spalte: 25
+Fehlerbericht -
+SQL-Fehler: ORA-00904: "GEOM"."SDO_GTYPE": ungültige ID
+
+https://docs.oracle.com/error-help/db/ora-00904/00904. 00000 -  "%s: invalid identifier"
+*Cause:    The identifier or column name entered was invalid.
+*Action:   Ensure the following
+
+More Details :
+https://docs.oracle.com/error-help/db/ora-00904/
+========== 5. ROW-COUNTS (korrigiert, mit SERVEROUTPUT) ==========
+
+TABLE_NAME                    N
+-------------------- ----------
+GEMEINDEN_SH               1892
+SCHUTZGEBIETE               206
+SEEN                       1581
+WALD                      37550
+
+========== Diagnose beendet ==========
